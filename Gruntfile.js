@@ -53,6 +53,42 @@ module.exports = function(grunt) {
           },
         ],
       },
+      /**
+       * Babel 7's `@babel/plugin-transform-module-umd` no longer supports
+       * directly transforming CommonJS modules to UMD modules.
+       *
+       * @see https://github.com/babel/babel/pull/6230
+       */
+      "fix-umd": {
+        options: {
+          patterns: [
+            {
+              match: /define\((.+?), *\[\], *factory\)/,
+              replacement: 'define($1, ["module"], factory)',
+            },
+            {
+              match: /if \(typeof exports !== "undefined"\) {(\s*)factory\(\)/,
+              replacement: 'if (typeof module !== "undefined") {$1factory(module)',
+            },
+            {
+              match: /(?<!if \(typeof exports !== "undefined"\) {\s*)factory\(\)/,
+              replacement: "factory(mod)",
+            },
+            {
+              match: /}\)\(this, function \(\) {/,
+              replacement: "})(this, function (module) {",
+            },
+          ],
+        },
+        files: [
+          {
+            expand: true,
+            flatten: true,
+            src: ["dist/browser-polyfill.js"],
+            dest: "dist/",
+          },
+        ],
+      },
     },
 
     babel: {
@@ -60,7 +96,7 @@ module.exports = function(grunt) {
         options: {
           babelrc: false,
           comments: false,
-          presets: ["babili"],
+          presets: ["minify"],
           sourceMap: true,
         },
         files: {
@@ -72,7 +108,7 @@ module.exports = function(grunt) {
           babelrc: false,
           comments: true,
           plugins: [
-            ["transform-es2015-modules-umd", {
+            ["@babel/transform-modules-umd", {
               globals: {
                 "webextension-polyfill": "browser",
               },
@@ -105,5 +141,5 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks("grunt-contrib-concat");
   grunt.loadNpmTasks("grunt-babel");
 
-  grunt.registerTask("default", ["eslint", "replace", "babel:umd", "babel:minify", "concat:license"]);
+  grunt.registerTask("default", ["eslint", "replace:dist", "babel:umd", "replace:fix-umd", "babel:minify", "concat:license"]);
 };
